@@ -9,6 +9,8 @@ import userRouter from "./Users/userRoutes";
 const app = express();
 const port = config.port || 3000;
 
+app.use(express.json());
+
 const startServer = async() =>{
 await connectDB();
 
