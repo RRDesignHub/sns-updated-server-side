@@ -29,9 +29,12 @@ const startServer = async () => {
   // global error handler
   app.use(globalErrorHandler);
 
-  app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-  });
+export default app;
+
+
+  if (config.nodeEnv !== 'production') {
+  app.listen(port, () => console.log(`Listening on ${port}`));
+}
 };
 
 startServer();
