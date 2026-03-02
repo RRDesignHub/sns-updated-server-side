@@ -29,7 +29,7 @@ const startServer = async () => {
   // global error handler
   app.use(globalErrorHandler);
 
-export default app;
+
 
 
   if (config.nodeEnv !== 'production') {
