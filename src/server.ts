@@ -29,12 +29,11 @@ const startServer = async () => {
   // global error handler
   app.use(globalErrorHandler);
 
-
-
-
-  if (config.nodeEnv !== 'production') {
-  app.listen(port, () => console.log(`Listening on ${port}`));
-}
+  if (config.nodeEnv !== "production") {
+    app.listen(port, () =>
+      console.log(`Listening on "http://localhost:${port}`),
+    );
+  }
 };
 
 startServer();
