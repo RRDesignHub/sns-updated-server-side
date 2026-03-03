@@ -1,11 +1,13 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import morgan from "morgan";
 import globalErrorHandler from "./middlewares/globalErrorHandaler";
 import userRouter from "./user/userRoutes";
 import studentRouter from "./student/studentRoutes";
 
 const app = express();
 // Body parser middleware
+app.use(morgan("dev"));
 app.use(cors());
 app.use(express.json());
 
