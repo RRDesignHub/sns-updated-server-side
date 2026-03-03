@@ -10,7 +10,7 @@ const startServer = async () => {
 
     if (config.nodeEnv !== "production") {
       app.listen(port, () =>
-        console.log(`Server listening on "http://localhost:${port}`),
+        console.log(`Server listening on "http://localhost:${port}"`),
       );
     }
   } catch (err) {
