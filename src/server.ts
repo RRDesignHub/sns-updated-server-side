@@ -1,39 +1,24 @@
-import express from "express";
+import app from "./app";
 import { config } from "./config/config";
 import connectDB from "./config/db.config";
-import globalErrorHandler from "./middlewares/globalErrorHandaler";
-import userRouter from "./user/userRoutes";
-import studentRouter from "./student/studentRoutes";
 
-const app = express();
 const port = config.port || 3000;
 
-app.use(express.json());
-
 const startServer = async () => {
-  await connectDB();
+  try {
+    await connectDB();
 
-  // root get api
-  app.get("/", (req, res) => {
-    res.json({
-      message: "SNS Server is running...",
-    });
-  });
-
-  // user routers
-  app.use("/api/users", userRouter);
-
-  // students routers
-  app.use("/api/students", studentRouter);
-
-  // global error handler
-  app.use(globalErrorHandler);
-
-  if (config.nodeEnv !== "production") {
-    app.listen(port, () =>
-      console.log(`Listening on "http://localhost:${port}`),
-    );
+    if (config.nodeEnv !== "production") {
+      app.listen(port, () =>
+        console.log(`Server listening on "http://localhost:${port}`),
+      );
+    }
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
   }
 };
 
 startServer();
+// Export app for Vercel serverless
+export default app;
