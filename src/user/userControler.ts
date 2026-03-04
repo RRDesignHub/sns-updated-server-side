@@ -6,6 +6,20 @@ import userModel from "./userModel";
 import { config } from "../config/config";
 import { User } from "./userTypes";
 
+const allUsers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await userModel.find();
+    if (!users) {
+      const error = createHttpError(400, "Users not found!!!");
+      return next(error);
+    }
+
+    res.status(201).json(users);
+  } catch (err) {
+    return next(createHttpError(500, "Error while cheaking if user exist."));
+  }
+};
+
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password, role } = req.body;
 
@@ -111,4 +125,4 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-export { createUser, loginUser };
+export { allUsers, createUser, loginUser };

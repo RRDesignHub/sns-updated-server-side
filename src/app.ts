@@ -8,7 +8,11 @@ import studentRouter from "./student/studentRoutes";
 const app = express();
 // Body parser middleware
 app.use(morgan("dev"));
-app.use(cors());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+  }),
+);
 app.use(express.json());
 
 // root get api
