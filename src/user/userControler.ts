@@ -73,6 +73,7 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
       id: newUser._id,
       email: newUser.email,
       role: newUser.role,
+      name: newUser.name,
     },
     accessToken: token,
   });
