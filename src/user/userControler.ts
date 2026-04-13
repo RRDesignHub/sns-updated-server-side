@@ -8,7 +8,18 @@ import { User } from "./userTypes";
 
 const allUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const users = await userModel.find();
+    const users = await userModel.aggregate([
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          role: 1,
+          createdAt: 1,
+          joinedAt: 1,
+        },
+      },
+    ]);
     if (!users) {
       const error = createHttpError(400, "Users not found!!!");
       return next(error);
@@ -126,4 +137,28 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-export { allUsers, createUser, loginUser };
+// delete specipic user
+const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+  const { id } = req.params;
+
+  // filter the user if already exist in db:
+  try {
+    const user = await userModel.findOne({ _id: id });
+    if (!user) {
+      const error = createHttpError(400, "User not found!!!");
+      return next(error);
+    }
+
+    const result = await userModel.deleteOne({ _id: id });
+    // response after created new user:
+    res.status(201).json({
+      success: true,
+      message: "User created successfully",
+      result,
+    });
+  } catch (err) {
+    return next(createHttpError(500, "Error while cheaking if user exist."));
+  }
+};
+
+export { allUsers, createUser, loginUser, deleteUser };
