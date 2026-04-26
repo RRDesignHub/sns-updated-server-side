@@ -1,23 +1,33 @@
 import { Document, Types } from "mongoose";
 
-// Subject Master - What subjects exist in the system
+// ========== SUBJECT MASTER TYPE (General Subjects) ==========
 export interface ISubjectMaster extends Document {
-  name: string;
-  code: string;
-  totalMarks: 50 | 100;
+  name: string; // English name: "Bangla 1st Paper"
+  nameBn: string; // Bengali name: "বাংলা ১ম পত্র"
+  code: string; // Unique code: "BAN-101"
+  totalMarks: 50 | 100; // 50 or 100
   academicMarks: number; // 80 (if 100) or 50 (if 50)
   behavioralMarks: number; // 20 (if 100) or 0 (if 50)
   status: "active" | "inactive";
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Class Config - Which subjects for which class
+// ========== CLASS SUBJECT TYPE (Class-specific Configuration) ==========
+export interface IAssignedSubject {
+  subjectId: Types.ObjectId; // Reference to SubjectMaster
+  order: number; // Display order in class
+  isActive: boolean; // Whether subject is active for this class
+}
+
 export interface IClassSubject extends Document {
   classId: string; // "class-5"
-  className: string; // "Class 5"
+  className: string; // "পঞ্চম শ্রেণি"
   section: "primary" | "secondary";
-  academicYear: string; // "2025"
-  subjects: {
-    subjectId: Types.ObjectId; // Reference to SubjectMaster
-    order: number; // Display order
-  }[];
+  academicYear: string; // "2026"
+  subjects: IAssignedSubject[];
+  createdBy?: Types.ObjectId;
+  updatedBy?: Types.ObjectId;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
