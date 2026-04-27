@@ -7,11 +7,8 @@ import {
   getAllClassSubjects,
   getClassSubjectsByClassId,
   assignSubjectsToClass,
-  updateClassSubjects,
   deleteClassSubjects,
   getAvailableSubjectsForClass,
-  updateSubjectOrder,
-  toggleSubjectStatus,
 } from "./subjectControler";
 import { verifyToken } from "./../middlewares/verifyToken";
 
@@ -46,20 +43,9 @@ subjectRouter.get(
 // Assign subjects to a class
 subjectRouter.post("/classes/assign", verifyToken, assignSubjectsToClass);
 
-// Update entire class configuration
-subjectRouter.put("/classes/:id", verifyToken, updateClassSubjects);
-
 // Delete class configuration
 subjectRouter.delete("/classes/:id", verifyToken, deleteClassSubjects);
 
-// Update subject order within a class
-subjectRouter.put("/classes/:id/order", verifyToken, updateSubjectOrder);
 
-// Toggle subject active status
-subjectRouter.patch(
-  "/classes/:classId/subjects/:subjectId/toggle",
-  verifyToken,
-  toggleSubjectStatus,
-);
 
 export default subjectRouter;

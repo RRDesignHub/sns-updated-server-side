@@ -11,9 +11,7 @@ const app = express();
 app.use(morgan("dev"));
 app.use(
   cors({
-    origin: [
-      "https://sn-school-dashboard.netlify.app",
-    ],
+    origin: "https://sn-school-dashboard.netlify.app",
   }),
 );
 app.use(express.json());

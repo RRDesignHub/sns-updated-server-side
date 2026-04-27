@@ -168,21 +168,33 @@ const deleteSubject = async (req: Request, res: Response) => {
 // ==================== CLASS SUBJECT ASSIGNMENT APIs ====================
 
 // Get all class subject configurations
-const getAllClassSubjects = async (req: Request, res: Response) => {
+const getAllClassSubjects = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const classConfigs = await ClassSubject.find(filter)
+    const classConfigs = await ClassSubject.find()
       .populate("subjects.subjectId")
       .sort({ className: 1 });
 
+    // If no configurations found, return empty array with message
+    if (!classConfigs || classConfigs.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "কোন ক্লাসের জন্য বিষয় নির্ধারণ করা হয়নি",
+        data: [],
+      });
+    }
+
     res.status(200).json({
       success: true,
+      message: `${classConfigs.length} টি ক্লাসের বিষয় নির্ধারণ পাওয়া গেছে`,
       data: classConfigs,
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Error fetching class subjects:", error);
+    return next(createHttpError(500, "ক্লাসের বিষয় তথ্য আনতে সমস্যা হয়েছে"));
   }
 };
 
@@ -287,57 +299,6 @@ const assignSubjectsToClass = async (req: Request, res: Response) => {
   }
 };
 
-// Update class subject configuration
-const updateClassSubjects = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { subjects, className, section, group } = req.body;
-
-    const classConfig = await ClassSubject.findById(id);
-
-    if (!classConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "কনফিগারেশনটি পাওয়া যায়নি",
-      });
-    }
-
-    if (subjects) {
-      // Validate subject IDs
-      for (const subjectItem of subjects) {
-        const subjectExists = await SubjectMaster.findById(
-          subjectItem.subjectId,
-        );
-        if (!subjectExists) {
-          return res.status(400).json({
-            success: false,
-            message: `বিষয়টি পাওয়া যায়নি: ${subjectItem.subjectId}`,
-          });
-        }
-      }
-      classConfig.subjects = subjects;
-    }
-
-    if (className) classConfig.className = className;
-    if (section) classConfig.section = section;
-    if (group !== undefined) classConfig.group = group;
-    classConfig.updatedAt = new Date();
-
-    await classConfig.save();
-
-    res.status(200).json({
-      success: true,
-      message: "ক্লাসের বিষয় হালনাগাদ করা হয়েছে",
-      data: classConfig,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 // Delete class subject configuration
 const deleteClassSubjects = async (req: Request, res: Response) => {
   try {
@@ -403,94 +364,6 @@ const getAvailableSubjectsForClass = async (req: Request, res: Response) => {
   }
 };
 
-// Update subject order within a class
-const updateSubjectOrder = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { subjects } = req.body; // Array of { subjectId, order }
-
-    const classConfig = await ClassSubject.findById(id);
-
-    if (!classConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "কনফিগারেশনটি পাওয়া যায়নি",
-      });
-    }
-
-    // Update order for each subject
-    for (const item of subjects) {
-      const subject = classConfig.subjects.find(
-        (s) => s.subjectId.toString() === item.subjectId,
-      );
-      if (subject) {
-        subject.order = item.order;
-      }
-    }
-
-    // Sort subjects by order
-    classConfig.subjects.sort((a, b) => a.order - b.order);
-    classConfig.updatedAt = new Date();
-
-    await classConfig.save();
-
-    res.status(200).json({
-      success: true,
-      message: "বিষয়ের ক্রম হালনাগাদ করা হয়েছে",
-      data: classConfig,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// Toggle subject active status within a class
-const toggleSubjectStatus = async (req: Request, res: Response) => {
-  try {
-    const { id, subjectId } = req.params;
-
-    const classConfig = await ClassSubject.findById(id);
-
-    if (!classConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "কনফিগারেশনটি পাওয়া যায়নি",
-      });
-    }
-
-    const subject = classConfig.subjects.find(
-      (s) => s.subjectId.toString() === subjectId,
-    );
-
-    if (!subject) {
-      return res.status(404).json({
-        success: false,
-        message: "বিষয়টি কনফিগারেশনে পাওয়া যায়নি",
-      });
-    }
-
-    subject.isActive = !subject.isActive;
-    classConfig.updatedAt = new Date();
-    await classConfig.save();
-
-    res.status(200).json({
-      success: true,
-      message: subject.isActive
-        ? "বিষয়টি সক্রিয় করা হয়েছে"
-        : "বিষয়টি নিষ্ক্রিয় করা হয়েছে",
-      data: classConfig,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 export {
   getAllSubjects,
   createSubject,
@@ -500,9 +373,6 @@ export {
   getAllClassSubjects,
   getClassSubjectsByClassId,
   assignSubjectsToClass,
-  updateClassSubjects,
   deleteClassSubjects,
   getAvailableSubjectsForClass,
-  updateSubjectOrder,
-  toggleSubjectStatus,
 };
