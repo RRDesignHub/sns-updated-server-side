@@ -11,7 +11,10 @@ const app = express();
 app.use(morgan("dev"));
 app.use(
   cors({
-    origin: "https://sn-school-dashboard.netlify.app",
+    origin: [
+      "https://sn-school-dashboard.netlify.app",
+      "http://localhost:5173",
+    ],
   }),
 );
 app.use(express.json());
