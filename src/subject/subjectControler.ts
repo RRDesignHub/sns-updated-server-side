@@ -170,37 +170,6 @@ const getAllClassSubjects = async (
   }
 };
 
-// Get single class subject configuration by class ID
-const getClassSubjectsByClassId = async (req: Request, res: Response) => {
-  try {
-    const { classId } = req.params;
-    const { academicYear } = req.query;
-
-    const query: any = { classId };
-    if (academicYear) query.academicYear = academicYear;
-
-    const classConfig =
-      await ClassSubject.findOne(query).populate("subjects.subjectId");
-
-    if (!classConfig) {
-      return res.status(404).json({
-        success: false,
-        message: "এই ক্লাসের জন্য কোন বিষয় নির্ধারণ করা হয়নি",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: classConfig,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 // Assign subjects to a class (Create or Update)
 const assignSubjectsToClass = async (req: Request, res: Response) => {
   try {
@@ -297,53 +266,12 @@ const deleteClassSubjects = async (req: Request, res: Response) => {
   }
 };
 
-// Get available subjects for a class (subjects not already assigned)
-const getAvailableSubjectsForClass = async (req: Request, res: Response) => {
-  try {
-    const { classId } = req.params;
-    const { academicYear } = req.query;
-
-    // Get currently assigned subjects for this class
-    const classConfig = await ClassSubject.findOne({
-      classId,
-      academicYear: academicYear || new Date().getFullYear().toString(),
-    });
-
-    const assignedSubjectIds = classConfig
-      ? classConfig.subjects.map((s) => s.subjectId.toString())
-      : [];
-
-    // Get all active subjects
-    const allSubjects = await SubjectMaster.find({ status: "active" });
-
-    // Filter out assigned subjects
-    const availableSubjects = allSubjects.filter(
-      (subject) => !assignedSubjectIds.includes(subject._id.toString()),
-    );
-
-    res.status(200).json({
-      success: true,
-      data: {
-        assigned: classConfig || null,
-        available: availableSubjects,
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 export {
   getAllSubjects,
   createSubject,
   updateSubject,
   deleteSubject,
   getAllClassSubjects,
-  getClassSubjectsByClassId,
   assignSubjectsToClass,
   deleteClassSubjects,
-  getAvailableSubjectsForClass,
 };

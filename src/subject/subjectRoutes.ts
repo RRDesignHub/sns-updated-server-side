@@ -5,10 +5,8 @@ import {
   getAllSubjects,
   updateSubject,
   getAllClassSubjects,
-  getClassSubjectsByClassId,
   assignSubjectsToClass,
   deleteClassSubjects,
-  getAvailableSubjectsForClass,
 } from "./subjectControler";
 import { verifyToken } from "./../middlewares/verifyToken";
 
@@ -25,20 +23,6 @@ subjectRouter.delete("/delete/:id", verifyToken, deleteSubject);
 // ==================== CLASS SUBJECT ROUTES ====================
 // Get all class configurations
 subjectRouter.get("/classes/all", verifyToken, getAllClassSubjects);
-
-// Get subjects for a specific class
-subjectRouter.get(
-  "/classes/:classId/subjects",
-  verifyToken,
-  getClassSubjectsByClassId,
-);
-
-// Get available subjects for a class (not yet assigned)
-subjectRouter.get(
-  "/classes/:classId/available",
-  verifyToken,
-  getAvailableSubjectsForClass,
-);
 
 // Assign subjects to a class
 subjectRouter.post("/classes/assign", verifyToken, assignSubjectsToClass);
