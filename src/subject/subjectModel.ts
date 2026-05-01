@@ -59,7 +59,7 @@ const ClassSubjectSchema = new Schema<IClassSubject>(
     },
     section: {
       type: String,
-      enum: ["primary", "secondary", "higher"],
+      enum: ["primary", "secondary"],
       required: true,
     },
     academicYear: {
@@ -83,6 +83,7 @@ const ClassSubjectSchema = new Schema<IClassSubject>(
         },
       },
     ],
+    group: { type: String },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",

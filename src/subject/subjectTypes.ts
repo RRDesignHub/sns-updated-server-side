@@ -32,6 +32,7 @@ export interface IClassSubject extends Document {
   section: "primary" | "secondary"; // ✅ Add "higher" if needed
   academicYear: string; // "2026"
   subjects: IAssignedSubject[];
+  group?: string;
   createdBy?: Types.ObjectId;
   updatedBy?: Types.ObjectId;
   createdAt?: Date;

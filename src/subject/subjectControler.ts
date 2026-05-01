@@ -14,19 +14,15 @@ const getAllSubjects = async (
     let filter: any = {};
     if (status) filter.status = status;
 
-    let query = SubjectMaster.find(filter);
-
     if (search) {
-      query = query.find({
-        $or: [
-          { name: { $regex: search, $options: "i" } },
-          { nameBn: { $regex: search, $options: "i" } },
-          { code: { $regex: search, $options: "i" } },
-        ],
-      });
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { nameBn: { $regex: search, $options: "i" } },
+        { code: { $regex: search, $options: "i" } },
+      ];
     }
 
-    const subjects = await query.sort({ name: 1 });
+    const subjects = await SubjectMaster.find(filter).sort({ name: 1 });
 
     res.status(200).json({
       success: true,
