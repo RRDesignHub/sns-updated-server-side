@@ -20,7 +20,7 @@ subjectRouter.get("/all-subjects", verifyToken, getAllSubjects);
 subjectRouter.post("/create", verifyToken, createSubject);
 subjectRouter.put("/update/:id", verifyToken, updateSubject);
 
-subjectRouter.delete("/:id", verifyToken, deleteSubject);
+subjectRouter.delete("/delete/:id", verifyToken, deleteSubject);
 
 // ==================== CLASS SUBJECT ROUTES ====================
 // Get all class configurations
@@ -45,7 +45,5 @@ subjectRouter.post("/classes/assign", verifyToken, assignSubjectsToClass);
 
 // Delete class configuration
 subjectRouter.delete("/classes/:id", verifyToken, deleteClassSubjects);
-
-
 
 export default subjectRouter;

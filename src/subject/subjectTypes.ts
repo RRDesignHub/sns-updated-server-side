@@ -18,12 +18,18 @@ export interface IAssignedSubject {
   subjectId: Types.ObjectId; // Reference to SubjectMaster
   order: number; // Display order in class
   isActive: boolean; // Whether subject is active for this class
+  // ✅ Add customConfig if your server supports it
+  customConfig?: {
+    totalMarks?: number;
+    academicMarks?: number;
+    behavioralMarks?: number;
+  };
 }
 
 export interface IClassSubject extends Document {
   classId: string; // "class-5"
   className: string; // "পঞ্চম শ্রেণি"
-  section: "primary" | "secondary";
+  section: "primary" | "secondary"; // ✅ Add "higher" if needed
   academicYear: string; // "2026"
   subjects: IAssignedSubject[];
   createdBy?: Types.ObjectId;

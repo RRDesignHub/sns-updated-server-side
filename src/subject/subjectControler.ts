@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
 import { ClassSubject, SubjectMaster } from "./subjectModel";
 
-// Get all subjects (with optional filtering)
+// Get all subjects without class specified (with optional filtering)
 const getAllSubjects = async (
   req: Request,
   res: Response,
@@ -37,7 +37,7 @@ const getAllSubjects = async (
   }
 };
 
-// Create a new subject
+// Create a new subject without class specified
 const createSubject = async (req: Request, res: Response) => {
   try {
     const { name, nameBn, code, totalMarks, academicMarks, behavioralMarks } =
@@ -76,31 +76,7 @@ const createSubject = async (req: Request, res: Response) => {
   }
 };
 
-// Get single subject by ID
-const getSubjectById = async (req: Request, res: Response) => {
-  try {
-    const subject = await SubjectMaster.findById(req.params.id);
-
-    if (!subject) {
-      return res.status(404).json({
-        success: false,
-        message: "বিষয়টি পাওয়া যায়নি",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: subject,
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// Update subject
+// Update subject  without class specified
 const updateSubject = async (req: Request, res: Response) => {
   try {
     const subject = await SubjectMaster.findByIdAndUpdate(
@@ -129,7 +105,7 @@ const updateSubject = async (req: Request, res: Response) => {
   }
 };
 
-// Delete subject (soft delete - just change status)
+// Delete subject without class specified
 const deleteSubject = async (req: Request, res: Response) => {
   try {
     // Check if subject is used in any class
@@ -367,7 +343,6 @@ const getAvailableSubjectsForClass = async (req: Request, res: Response) => {
 export {
   getAllSubjects,
   createSubject,
-  getSubjectById,
   updateSubject,
   deleteSubject,
   getAllClassSubjects,
