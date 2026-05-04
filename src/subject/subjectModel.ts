@@ -73,13 +73,16 @@ const ClassSubjectSchema = new Schema<IClassSubject>(
           ref: "SubjectMaster",
           required: true,
         },
-        order: {
-          type: Number,
-          default: 0,
-        },
-        isActive: {
-          type: Boolean,
-          default: true,
+        order: { type: Number, default: 0 },
+        isActive: { type: Boolean, default: true },
+
+        customConfig: {
+          type: {
+            totalMarks: { type: Number },
+            academicMarks: { type: Number },
+            behavioralMarks: { type: Number },
+          },
+          default: undefined, // Don't save if not provided
         },
       },
     ],
