@@ -240,6 +240,72 @@ const assignSubjectsToClass = async (req: Request, res: Response) => {
   }
 };
 
+// Get class subjects for result entry
+export const getClassSubjectsForResult = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { classId, academicYear } = req.params;
+
+    // Find class configuration
+    const classConfig = await ClassSubject.findOne({
+      classId,
+      academicYear,
+    }).populate("subjects.subjectId");
+
+    if (!classConfig) {
+      const error = createHttpError(
+        404,
+        "এই ক্লাসের জন্য কোন বিষয় নির্ধারণ করা হয়নি",
+      );
+      return next(error);
+    }
+
+    // Format subjects with effective marks
+    const subjects = classConfig.subjects
+      .filter((item: any) => item.isActive)
+      .map((item: any) => {
+        const subject = item.subjectId;
+        const customConfig = item.customConfig;
+
+        // Use custom config if available, otherwise use default from subject master
+        const effectiveTotalMarks =
+          customConfig?.totalMarks || subject.totalMarks;
+        const effectiveAcademicMarks =
+          customConfig?.academicMarks || subject.academicMarks;
+        const effectiveBehavioralMarks =
+          customConfig?.behavioralMarks || subject.behavioralMarks;
+
+        return {
+          _id: subject._id,
+          name: subject.name,
+          nameBn: subject.nameBn,
+          code: subject.code,
+          // Default marks (from subject master)
+          defaultTotalMarks: subject.totalMarks,
+          defaultAcademicMarks: subject.academicMarks,
+          defaultBehavioralMarks: subject.behavioralMarks,
+          // Effective marks (after custom config)
+          totalMarks: effectiveTotalMarks,
+          academicMarks: effectiveAcademicMarks,
+          behavioralMarks: effectiveBehavioralMarks,
+          order: item.order,
+          isActive: item.isActive,
+          hasCustomConfig: !!customConfig,
+        };
+      });
+
+    res.status(200).json({
+      success: true,
+      data: subjects,
+    });
+  } catch (error: any) {
+    return next(createHttpError(500, error.message));
+  }
+};
+
 // Delete class subject configuration
 const deleteClassSubjects = async (req: Request, res: Response) => {
   try {

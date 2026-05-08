@@ -134,6 +134,68 @@ export const getAllExams = async (
   }
 };
 
+// Get exams by class name
+export const getExamsByClass = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { className, academicYear } = req.query;
+
+    if (!className) {
+      const error = createHttpError(400, "Class name is required");
+      return next(error);
+    }
+
+    // Build query
+    let query: any = {};
+
+    // For primary section (Play to Class 5)
+    const primaryClasses = [
+      "Play",
+      "Nursery",
+      "Class 1",
+      "Class 2",
+      "Class 3",
+      "Class 4",
+      "Class 5",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+    ];
+
+    if (primaryClasses.includes(className as string)) {
+      query.section = "primary";
+    } else {
+      query.section = "secondary";
+    }
+
+    if (academicYear) {
+      query.academicYear = academicYear;
+    }
+
+    const exams = await Exam.find(query).sort({ startDate: -1 });
+
+    if (!exams || exams.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "No exams found for this class",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: exams,
+    });
+  } catch (error: any) {
+    return next(createHttpError(500, error.message));
+  }
+};
+
 // Delete exam
 export const deleteExam = async (
   req: Request,

@@ -7,6 +7,7 @@ import {
   getAllClassSubjects,
   assignSubjectsToClass,
   deleteClassSubjects,
+  getClassSubjectsForResult,
 } from "./subjectControler";
 import { verifyToken } from "./../middlewares/verifyToken";
 
@@ -26,6 +27,12 @@ subjectRouter.get("/classes/all", verifyToken, getAllClassSubjects);
 
 // Assign subjects to a class
 subjectRouter.post("/classes/assign", verifyToken, assignSubjectsToClass);
+
+subjectRouter.get(
+  "/class/:classId/subjects/:academicYear",
+  verifyToken,
+  getClassSubjectsForResult,
+);
 
 // Delete class configuration
 subjectRouter.delete("/classes/:id", verifyToken, deleteClassSubjects);

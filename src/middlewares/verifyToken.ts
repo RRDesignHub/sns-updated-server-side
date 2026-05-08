@@ -12,7 +12,7 @@ interface DecodedToken {
 }
 
 export interface AuthRequest extends Request {
-  user?: DecodedToken;
+  user: DecodedToken;
 }
 
 export const verifyToken = async (

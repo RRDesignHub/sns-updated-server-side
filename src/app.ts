@@ -6,6 +6,7 @@ import userRouter from "./user/userRoutes";
 import studentRouter from "./student/studentRoutes";
 import subjectRouter from "./subject/subjectRoutes";
 import examRouter from "./exam/examRoutes";
+import resultRouter from "./result/resultRoutes";
 
 const app = express();
 // Body parser middleware
@@ -34,6 +35,7 @@ app.use("/api/subjects", subjectRouter);
 
 app.use("/api/exams", examRouter);
 
+app.use("/api/result", resultRouter);
 // Global error handler (should be last)
 app.use(globalErrorHandler);
 
