@@ -17,7 +17,8 @@ export interface IExamSnapshot {
   examType: "semester" | "yearly";
 }
 
-// Behavioral marks data
+// ========== BEHAVIORAL DATA (Global - 20 marks total) ==========
+
 export interface IBehavioralData {
   attendance: {
     present: number;
@@ -34,10 +35,15 @@ export interface IBehavioralData {
     total: number;
     marks: number;
   };
+  discipline: {
+    obtained: number;
+    total: number;
+    marks: number;
+  };
   totalBehavioralMarks: number;
 }
 
-// Individual subject result (compact format)
+// ========== SUBJECT RESULT (Academic only, behavioral is global) ==========
 export interface ISubjectResult {
   subjectId: Types.ObjectId;
   name: string;
@@ -45,10 +51,7 @@ export interface ISubjectResult {
   code: string;
   totalMarks: number;
   academicMarks: number;
-  behavioralMarks: number;
   obtainedAcademic: number;
-  obtainedBehavioral: number;
-  obtainedDiscipline: number;
   obtainedTotal: number;
   grade: string;
   gpa: number;
@@ -73,12 +76,12 @@ export interface ISummary {
   isPassed: boolean;
 }
 
-// Main Result Interface
+// ========== MAIN RESULT INTERFACE ==========
 export interface IResult extends Document {
   studentId: Types.ObjectId;
   examId: Types.ObjectId;
   academicYear: string;
-  classId: string;
+  className: string;
   studentSnapshot: IStudentSnapshot;
   examSnapshot: IExamSnapshot;
   behavioralData: IBehavioralData;
@@ -89,6 +92,34 @@ export interface IResult extends Document {
   createdBy: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// ========== CREATE RESULT REQUEST BODY (Client to Server) ==========
+export interface ICreateResultRequest {
+  studentId: string;
+  examId: string;
+  className: string;
+  academicYear: string;
+  attendance: {
+    present: number;
+    total: number;
+  };
+  meetings: {
+    attended: number;
+    total: number;
+  };
+  fees: {
+    paid: number;
+    total: number;
+  };
+  discipline: {
+    obtained: number;
+    total: number;
+  };
+  subjects: {
+    subjectId: string;
+    obtainedAcademic: number;
+  }[];
 }
 
 // ==================== REQUEST/RESPONSE TYPES ====================
@@ -113,30 +144,16 @@ export interface IStudentSearchResponse {
   group?: string;
 }
 
-// Create result request body
-export interface ICreateResultRequest {
-  studentId: string;
-  examId: string;
-  academicYear: string;
-  classId: string;
-  attendance: {
-    present: number;
-    total: number;
-  };
-  meetings: {
-    attended: number;
-    total: number;
-  };
-  fees: {
-    paid: number;
-    total: number;
-  };
-  subjects: {
-    subjectId: string;
-    obtainedAcademic: number;
-    obtainedBehavioral: number;
-    obtainedDiscipline: number;
-  }[];
+// For populated subject from ClassSubject
+export interface IPopulatedSubject {
+  _id: Types.ObjectId;
+  name: string;
+  nameBn: string;
+  code: string;
+  totalMarks: number;
+  academicMarks: number;
+  behavioralMarks: number;
+  status: string;
 }
 
 // Check existing result query

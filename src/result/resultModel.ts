@@ -21,7 +21,11 @@ const resultSchema = new Schema<IResult>(
       type: String,
       required: true,
     },
-    classId: { type: String, required: true },
+    className: {
+      type: String,
+      required: true,
+    },
+
     // Snapshots (frozen at creation time)
     studentSnapshot: {
       studentId: { type: String, required: true },
@@ -36,7 +40,7 @@ const resultSchema = new Schema<IResult>(
       examType: { type: String, enum: ["semester", "yearly"], required: true },
     },
 
-    // Behavioral Data
+    // ✅ Global Behavioral Data (20 marks total)
     behavioralData: {
       attendance: {
         present: { type: Number, required: true, min: 0 },
@@ -53,10 +57,15 @@ const resultSchema = new Schema<IResult>(
         total: { type: Number, required: true, min: 0 },
         marks: { type: Number, required: true, min: 0, max: 5 },
       },
+      discipline: {
+        obtained: { type: Number, required: true, min: 0, max: 5 },
+        total: { type: Number, required: true, default: 5 },
+        marks: { type: Number, required: true, min: 0, max: 5 },
+      },
       totalBehavioralMarks: { type: Number, required: true, min: 0, max: 20 },
     },
 
-    // Subject Results (array)
+    // ✅ Subject Results (ONLY academic marks per subject)
     subjectResults: [
       {
         subjectId: {
@@ -69,10 +78,7 @@ const resultSchema = new Schema<IResult>(
         code: { type: String, required: true },
         totalMarks: { type: Number, required: true },
         academicMarks: { type: Number, required: true },
-        behavioralMarks: { type: Number, required: true },
         obtainedAcademic: { type: Number, required: true, min: 0 },
-        obtainedBehavioral: { type: Number, required: true, min: 0 },
-        obtainedDiscipline: { type: Number, required: true, min: 0, max: 5 },
         obtainedTotal: { type: Number, required: true, min: 0 },
         grade: { type: String, required: true },
         gpa: { type: Number, required: true, min: 0, max: 5 },

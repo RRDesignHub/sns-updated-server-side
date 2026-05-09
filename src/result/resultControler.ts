@@ -1,6 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import createHttpError from "http-errors";
-import { IStudentSearchQuery, IStudentSearchResponse } from "./resultTypes";
+import {
+  IPopulatedSubject,
+  IStudentSearchQuery,
+  IStudentSearchResponse,
+} from "./resultTypes";
 import { Student } from "./../student/studentModel";
 import { Exam } from "./../exam/examModel";
 import { Result } from "./resultModel";
@@ -62,9 +66,20 @@ const createResult = async (
   next: NextFunction,
 ) => {
   try {
-    const { studentId, examId, classId, attendance, meetings, fees, subjects } =
-      req.body;
+    const {
+      studentId,
+      examId,
+      classId,
+      academicYear,
+      attendance,
+      meetings,
+      fees,
+      discipline,
+      subjects,
+    } = req.body;
+
     const userId = req.user?.id || (req.user as any)?.sub;
+
     // ========== VALIDATION - Check required fields ==========
     if (!studentId) {
       const error = createHttpError(400, "শিক্ষার্থীর আইডি প্রদান করুন");
@@ -103,6 +118,11 @@ const createResult = async (
       return next(error);
     }
 
+    if (!discipline || typeof discipline.obtained !== "number") {
+      const error = createHttpError(400, "সঠিক শৃঙ্খলা মার্ক প্রদান করুন");
+      return next(error);
+    }
+
     if (!subjects || !Array.isArray(subjects) || subjects.length === 0) {
       const error = createHttpError(400, "বিষয়ভিত্তিক নম্বর প্রদান করুন");
       return next(error);
@@ -127,6 +147,11 @@ const createResult = async (
       return next(error);
     }
 
+    if (discipline.obtained < 0 || discipline.obtained > 5) {
+      const error = createHttpError(400, "শৃঙ্খলা মার্ক ০-৫ এর মধ্যে হতে হবে");
+      return next(error);
+    }
+
     // ========== FIND STUDENT ==========
     const student = await Student.findById(studentId);
     if (!student) {
@@ -145,8 +170,9 @@ const createResult = async (
     const existingResult = await Result.findOne({
       studentId,
       examId,
-      academicYear: exam.academicYear,
+      academicYear: academicYear || exam.academicYear,
     });
+
     if (existingResult) {
       const error = createHttpError(
         409,
@@ -158,7 +184,7 @@ const createResult = async (
     // ========== GET CLASS SUBJECTS ==========
     const classConfig = await ClassSubject.findOne({
       classId: classId,
-      academicYear: exam.academicYear,
+      academicYear: academicYear || exam.academicYear,
     }).populate("subjects.subjectId");
 
     if (!classConfig) {
@@ -169,13 +195,23 @@ const createResult = async (
       return next(error);
     }
 
-    // ========== CALCULATE BEHAVIORAL MARKS ==========
+    // ========== CALCULATE GLOBAL BEHAVIORAL MARKS (20 marks total) ==========
     const attendanceMark =
-      attendance.total > 0 ? (attendance.present / attendance.total) * 5 : 0;
+      attendance.total > 0
+        ? Math.round((attendance.present / attendance.total) * 5)
+        : 0;
+
     const meetingMark =
-      meetings.total > 0 ? (meetings.attended / meetings.total) * 5 : 0;
-    const feeMark = fees.total > 0 ? (fees.paid / fees.total) * 5 : 0;
-    const totalBehavioralMarks = attendanceMark + meetingMark + feeMark;
+      meetings.total > 0
+        ? Math.round((meetings.attended / meetings.total) * 5)
+        : 0;
+
+    const feeMark =
+      fees.total > 0 ? Math.round((fees.paid / fees.total) * 5) : 0;
+
+    const disciplineMark = Math.round(discipline.obtained);
+    const totalBehavioralMarks =
+      attendanceMark + meetingMark + feeMark + disciplineMark;
 
     // ========== CALCULATE SUBJECT RESULTS ==========
     const subjectResults = [];
@@ -186,7 +222,6 @@ const createResult = async (
     let totalGPA = 0;
 
     for (const subjectData of subjects) {
-      // Find subject in class config
       const classSubject = classConfig.subjects.find(
         (s: any) => s.subjectId._id.toString() === subjectData.subjectId,
       );
@@ -199,16 +234,13 @@ const createResult = async (
         return next(error);
       }
 
-      const subject = classSubject.subjectId;
-      const customConfig = classSubject.customConfig;
+      const subject = classSubject.subjectId as unknown as IPopulatedSubject;
 
-      // Get effective marks (consider custom config)
+      const customConfig = classSubject.customConfig;
       const totalSubjectMarks = customConfig?.totalMarks || subject.totalMarks;
       const academicMax = customConfig?.academicMarks || subject.academicMarks;
-      const behavioralMax =
-        customConfig?.behavioralMarks || subject.behavioralMarks;
 
-      // Validate subject marks
+      // Validate
       if (
         subjectData.obtainedAcademic < 0 ||
         subjectData.obtainedAcademic > academicMax
@@ -220,36 +252,21 @@ const createResult = async (
         return next(error);
       }
 
-      if (
-        subjectData.obtainedBehavioral < 0 ||
-        subjectData.obtainedBehavioral > behavioralMax
-      ) {
-        const error = createHttpError(
-          400,
-          `${subject.nameBn} এর বিহেভিওরাল নম্বর সঠিক নয়`,
+      // Only add behavioral marks for 100-mark subjects
+      let obtainedTotal;
+      if (totalSubjectMarks === 100) {
+        obtainedTotal = Math.round(
+          subjectData.obtainedAcademic + totalBehavioralMarks,
         );
-        return next(error);
+      } else {
+        obtainedTotal = Math.round(subjectData.obtainedAcademic);
       }
 
-      if (
-        subjectData.obtainedDiscipline < 0 ||
-        subjectData.obtainedDiscipline > 5
-      ) {
-        const error = createHttpError(
-          400,
-          `${subject.nameBn} এর শৃঙ্খলা নম্বর সঠিক নয়`,
-        );
-        return next(error);
-      }
+      const percentage = Number(
+        ((obtainedTotal / totalSubjectMarks) * 100).toFixed(2),
+      );
 
-      // Calculate total obtained
-      const obtainedTotal =
-        subjectData.obtainedAcademic +
-        subjectData.obtainedBehavioral +
-        subjectData.obtainedDiscipline;
-      const percentage = (obtainedTotal / totalSubjectMarks) * 100;
-
-      // Calculate grade and GPA
+      // Calculate grade
       let grade = "";
       let gpa = 0;
       let isPassed = true;
@@ -295,10 +312,7 @@ const createResult = async (
         code: subject.code,
         totalMarks: totalSubjectMarks,
         academicMarks: academicMax,
-        behavioralMarks: behavioralMax,
         obtainedAcademic: subjectData.obtainedAcademic,
-        obtainedBehavioral: subjectData.obtainedBehavioral,
-        obtainedDiscipline: subjectData.obtainedDiscipline,
         obtainedTotal,
         grade,
         gpa,
@@ -315,9 +329,11 @@ const createResult = async (
 
     // ========== CALCULATE SUMMARY ==========
     const overallPercentage =
-      totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+      totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
     const averageGPA =
-      subjectResults.length > 0 ? totalGPA / subjectResults.length : 0;
+      subjectResults.length > 0
+        ? Number((totalGPA / subjectResults.length).toFixed(2))
+        : 0;
 
     let finalGrade = "";
     if (overallPercentage >= 80) finalGrade = "A+";
@@ -334,7 +350,7 @@ const createResult = async (
       totalSubjects: subjectResults.length,
       passedSubjects: passedCount,
       failedSubjects: failedCount,
-      totalObtainedMarks: totalObtained,
+      totalObtainedMarks: Number(totalObtained.toFixed(2)),
       totalMaxMarks: totalMax,
       overallPercentage: Number(overallPercentage.toFixed(2)),
       averageGPA: Number(averageGPA.toFixed(2)),
@@ -346,8 +362,8 @@ const createResult = async (
     const newResult = await Result.create({
       studentId,
       examId,
-      academicYear: exam.academicYear,
-      classId,
+      academicYear: academicYear || exam.academicYear,
+      className: student.className,
       studentSnapshot: {
         studentId: student.studentID,
         studentName: student.studentName,
@@ -375,6 +391,11 @@ const createResult = async (
           total: fees.total,
           marks: Number(feeMark.toFixed(2)),
         },
+        discipline: {
+          obtained: discipline.obtained,
+          total: 5,
+          marks: Number(disciplineMark.toFixed(2)),
+        },
         totalBehavioralMarks: Number(totalBehavioralMarks.toFixed(2)),
       },
       subjectResults,
@@ -388,7 +409,7 @@ const createResult = async (
       success: true,
       message: "ফলাফল সফলভাবে সংরক্ষণ করা হয়েছে",
       data: {
-        _id: newResult._id,
+        _id: newResult?._id,
         studentName: student.studentName,
         examName: exam.name,
         totalObtained: summary.totalObtainedMarks,
@@ -398,7 +419,6 @@ const createResult = async (
       },
     });
   } catch (error: any) {
-    // Handle duplicate key error
     if (error.code === 11000) {
       const conflictError = createHttpError(
         409,
