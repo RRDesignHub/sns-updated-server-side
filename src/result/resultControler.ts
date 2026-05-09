@@ -9,7 +9,6 @@ import { Student } from "./../student/studentModel";
 import { Exam } from "./../exam/examModel";
 import { Result } from "./resultModel";
 import { ClassSubject } from "./../subject/subjectModel";
-import { AuthRequest } from "../middlewares/verifyToken";
 // ==================== SEARCH STUDENT API ====================
 
 const searchStudent = async (
@@ -61,7 +60,7 @@ const searchStudent = async (
 };
 
 const createResult = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {

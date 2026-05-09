@@ -11,12 +11,8 @@ interface DecodedToken {
   exp: number;
 }
 
-export interface AuthRequest extends Request {
-  user: DecodedToken;
-}
-
 export const verifyToken = async (
-  req: AuthRequest,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
