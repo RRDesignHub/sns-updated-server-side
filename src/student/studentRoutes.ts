@@ -1,6 +1,6 @@
 import express from "express";
 import { searchStudent } from "./studentControler";
-import { verifyToken } from "src/middlewares/verifyToken";
+import { verifyToken } from "../middlewares/verifyToken";
 
 const studentRouter = express.Router();
 studentRouter.get("/search", verifyToken, searchStudent);

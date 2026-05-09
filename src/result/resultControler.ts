@@ -436,4 +436,116 @@ const createResult = async (
   }
 };
 
+// ==================== GET FILTERED RESULTS ====================
+export const getFilteredResults = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { className, academicYear, examId, status } = req.query;
+
+    // Build filter object
+    let filter: any = {};
+
+    // ✅ Important: className must match exactly what's in DB
+    if (className) filter.className = className;
+    if (academicYear) filter.academicYear = academicYear;
+    if (examId) filter.examId = examId;
+    if (status) filter.status = status;
+
+    
+
+    // If no filters, return empty
+    if (Object.keys(filter).length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "No filters provided",
+      });
+    }
+
+    const results = await Result.find(filter).sort({ createdAt: -1 });
+
+    console.log("Found results:", results.length); // Debug log
+
+    // Format response for client
+    const formattedResults = results.map((result) => ({
+      _id: result._id,
+      studentName: result.studentSnapshot?.studentName,
+      studentRoll: result.studentSnapshot?.classRoll,
+      examName: result.examSnapshot?.name,
+      totalObtained: result.summary.totalObtainedMarks,
+      totalMax: result.summary.totalMaxMarks,
+      percentage: result.summary.overallPercentage,
+      grade: result.summary.finalGrade,
+      gpa: result.summary.averageGPA,
+      status: result.status,
+      createdAt: result.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: formattedResults,
+      count: formattedResults.length,
+    });
+  } catch (error: any) {
+    console.error("Get filtered results error:", error);
+    return next(createHttpError(500, "ফলাফল আনতে ব্যর্থ হয়েছে"));
+  }
+};
+
+// ==================== DELETE RESULT ====================
+export const deleteResult = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+
+    const result = await Result.findByIdAndDelete(id);
+
+    if (!result) {
+      const error = createHttpError(404, "ফলাফল পাওয়া যায়নি");
+      return next(error);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "ফলাফল মুছে ফেলা হয়েছে",
+    });
+  } catch (error: any) {
+    console.error("Delete result error:", error);
+    return next(createHttpError(500, "ফলাফল মুছতে ব্যর্থ হয়েছে"));
+  }
+};
+
+// ==================== GET SINGLE RESULT FOR PRINT ====================
+export const getResultById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { id } = req.params;
+
+    const result = await Result.findById(id)
+      .populate("studentId", "studentName studentID classRoll className")
+      .populate("examId", "name nameBn academicYear");
+
+    if (!result) {
+      const error = createHttpError(404, "ফলাফল পাওয়া যায়নি");
+      return next(error);
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error: any) {
+    console.error("Get result by id error:", error);
+    return next(createHttpError(500, "ফলাফল আনতে ব্যর্থ হয়েছে"));
+  }
+};
 export { searchStudent, createResult };
