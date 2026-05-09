@@ -1,12 +1,8 @@
 import express from "express";
-import { addStudent, getAllStudents } from "./studentControler";
+import { searchStudent } from "./studentControler";
+import { verifyToken } from "src/middlewares/verifyToken";
 
 const studentRouter = express.Router();
-
-//all students get from db:
-studentRouter.get("/all-students", getAllStudents);
-
-studentRouter.post("/add", addStudent);
-// studentRouter.post("/login", loginUser);
+studentRouter.get("/search", verifyToken, searchStudent);
 
 export default studentRouter;
