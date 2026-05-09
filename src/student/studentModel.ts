@@ -182,7 +182,6 @@ studentSchema.virtual("section").get(function () {
 
 studentSchema.set("toJSON", { virtuals: true });
 studentSchema.set("toObject", { virtuals: true });
-
 export const Student = mongoose.model<IStudent>(
   "Student",
   studentSchema,

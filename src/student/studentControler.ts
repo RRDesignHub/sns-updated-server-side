@@ -1,40 +1,55 @@
-import { NextFunction, Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import createHttpError from "http-errors";
-import studentModel from "./studentModel";
-import { Student } from "./studentType";
-const getAllStudents = async (
+import { Student } from "./studentModel";
+import { IStudentSearchResponse } from "./studentType";
+
+export const searchStudent = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    //   get user data from db by email filter:
-    const students = await studentModel.find();
+    const { className, roll, studentId } = req.query;
 
-    if (!students) {
-      return next(createHttpError(401, "No students found!!!"));
+    let query: any = {};
+
+    if (className && roll) {
+      query = { className, classRoll: roll };
+    } else if (studentId) {
+      query = { studentID: studentId };
+    } else {
+      const error = createHttpError(
+        400,
+        "ক্লাস ও রোল অথবা শিক্ষার্থী আইডি প্রদান করুন",
+      );
+      return next(error);
     }
 
-    // response after created new user:
-    res.status(201).json({
-      success: true,
-      data: {
-        students,
-      },
-    });
-  } catch (err) {
-    return next(
-      createHttpError(
-        500,
-        "Internal server error during getting students data.",
-      ),
+    // ✅ Student is now imported correctly
+    const student = await Student.findOne(query).select(
+      "_id studentID studentName classRoll className",
     );
+
+    if (!student) {
+      const error = createHttpError(404, "শিক্ষার্থী পাওয়া যায়নি");
+      return next(error);
+    }
+
+    const response: IStudentSearchResponse = {
+      _id: Object(student?._id),
+      studentId: student.studentID,
+      name: student.studentName,
+      roll: student.classRoll,
+      className: student.className,
+      classId: `class-${student.className.toLowerCase().replace(" ", "-")}`,
+      section: "primary",
+    };
+
+    res.status(200).json({
+      success: true,
+      data: response,
+    });
+  } catch (error: any) {
+    return next(createHttpError(500, error.message));
   }
 };
-
-const addStudent = async (req: Request, res: Response, next: NextFunction) => {
-  const { name } = req.body;
-  res.json({ message: "Add stu...", name });
-};
-
-export { getAllStudents, addStudent };

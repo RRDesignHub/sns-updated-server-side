@@ -40,15 +40,21 @@ export interface IStudent extends Document {
   updatedAt: Date;
 }
 
-// For student search response
+// ✅ Export the type for search response
 export interface IStudentSearchResponse {
+  _id?: string;
+  studentId: string;
+  name: string;
+  roll: string;
+  className: string;
+  classId: string;
+  section: string;
+}
+
+export interface IStudentDocument {
   _id: string;
   studentID: string;
   studentName: string;
   classRoll: string;
   className: string;
-  classId?: string;
-  section?: string;
-  group?: string;
-  image?: string;
 }
