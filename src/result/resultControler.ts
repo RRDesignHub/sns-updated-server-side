@@ -59,6 +59,55 @@ const searchStudent = async (
   }
 };
 
+//==================== helping functions for creating result  ====================
+
+// Calculate grade and GPA based on percentage (INTEGER)
+const calculateGradeAndGPA = (
+  percentage: number,
+): { grade: string; gpa: number; isPassed: boolean } => {
+  if (percentage >= 80) return { grade: "A+", gpa: 5.0, isPassed: true };
+  if (percentage >= 70) return { grade: "A", gpa: 4.0, isPassed: true };
+  if (percentage >= 60) return { grade: "A-", gpa: 3.5, isPassed: true };
+  if (percentage >= 50) return { grade: "B", gpa: 3.0, isPassed: true };
+  if (percentage >= 40) return { grade: "C", gpa: 2.0, isPassed: true };
+  if (percentage >= 33) return { grade: "D", gpa: 1.0, isPassed: true };
+  return { grade: "F", gpa: 0.0, isPassed: false };
+};
+
+const getRequiredPassMarks = (
+  totalMarks: number,
+  academicMarks: number,
+  behavioralMarks: number,
+) => {
+  const passPercent = 33;
+  const requiredTotal = Math.ceil((totalMarks * passPercent) / 100);
+  const requiredAcademic = Math.ceil((academicMarks * passPercent) / 100);
+  const requiredBehavioral = Math.ceil((behavioralMarks * passPercent) / 100);
+
+  return { requiredTotal, requiredAcademic, requiredBehavioral };
+};
+
+// Check if student passed the subject
+const isSubjectPassed = (
+  totalMarks: number,
+  obtainedTotal: number,
+  academicMarks: number,
+  obtainedAcademic: number,
+  behavioralMarks: number,
+  obtainedBehavioral: number,
+): boolean => {
+  const { requiredTotal, requiredAcademic, requiredBehavioral } =
+    getRequiredPassMarks(totalMarks, academicMarks, behavioralMarks);
+
+  // For 100-mark subjects, check academic and behavioral separately
+  if (totalMarks === 100) {
+    if (obtainedAcademic < requiredAcademic) return false;
+    if (obtainedBehavioral < requiredBehavioral) return false;
+  }
+
+  return obtainedTotal >= requiredTotal;
+};
+
 const createResult = async (
   req: Request,
   res: Response,
@@ -234,12 +283,14 @@ const createResult = async (
       }
 
       const subject = classSubject.subjectId as unknown as IPopulatedSubject;
-
       const customConfig = classSubject.customConfig;
+
       const totalSubjectMarks = customConfig?.totalMarks || subject.totalMarks;
       const academicMax = customConfig?.academicMarks || subject.academicMarks;
+      const behavioralMax =
+        customConfig?.behavioralMarks || subject.behavioralMarks;
 
-      // Validate
+      // Validate academic marks
       if (
         subjectData.obtainedAcademic < 0 ||
         subjectData.obtainedAcademic > academicMax
@@ -251,47 +302,43 @@ const createResult = async (
         return next(error);
       }
 
-      // Only add behavioral marks for 100-mark subjects
+      const obtainedAcademic = Math.round(subjectData.obtainedAcademic);
+
+      // Calculate total obtained marks
       let obtainedTotal;
+      let obtainedBehavioral = 0;
+
       if (totalSubjectMarks === 100) {
-        obtainedTotal = Math.round(
-          subjectData.obtainedAcademic + totalBehavioralMarks,
-        );
+        obtainedBehavioral = totalBehavioralMarks;
+        obtainedTotal = Math.round(obtainedAcademic + obtainedBehavioral);
       } else {
-        obtainedTotal = Math.round(subjectData.obtainedAcademic);
+        obtainedTotal = Math.round(obtainedAcademic);
       }
 
-      const percentage = Number(
-        ((obtainedTotal / totalSubjectMarks) * 100).toFixed(2),
+      // ✅ Calculate percentage (rounded)
+      const percentage = Math.round((obtainedTotal / totalSubjectMarks) * 100);
+
+      // ✅ Use helper function
+      const gradeInfo = calculateGradeAndGPA(percentage);
+      let grade = gradeInfo.grade;
+      let gpa = gradeInfo.gpa;
+      let isPassed = gradeInfo.isPassed;
+
+      // ✅ Check pass/fail with separate pass marks (override if needed)
+      const passedCheck = isSubjectPassed(
+        totalSubjectMarks,
+        obtainedTotal,
+        academicMax,
+        obtainedAcademic,
+        behavioralMax,
+        obtainedBehavioral,
       );
 
-      // Calculate grade
-      let grade = "";
-      let gpa = 0;
-      let isPassed = true;
-
-      if (percentage >= 80) {
-        grade = "A+";
-        gpa = 5.0;
-      } else if (percentage >= 70) {
-        grade = "A";
-        gpa = 4.0;
-      } else if (percentage >= 60) {
-        grade = "A-";
-        gpa = 3.5;
-      } else if (percentage >= 50) {
-        grade = "B";
-        gpa = 3.0;
-      } else if (percentage >= 40) {
-        grade = "C";
-        gpa = 2.0;
-      } else if (percentage >= 33) {
-        grade = "D";
-        gpa = 1.0;
-      } else {
+      // If failed by pass marks, override
+      if (!passedCheck) {
+        isPassed = false;
         grade = "F";
         gpa = 0.0;
-        isPassed = false;
       }
 
       totalObtained += obtainedTotal;
@@ -311,7 +358,9 @@ const createResult = async (
         code: subject.code,
         totalMarks: totalSubjectMarks,
         academicMarks: academicMax,
-        obtainedAcademic: subjectData.obtainedAcademic,
+        behavioralMarks: behavioralMax,
+        obtainedAcademic,
+        obtainedBehavioral,
         obtainedTotal,
         grade,
         gpa,
@@ -327,31 +376,29 @@ const createResult = async (
     }
 
     // ========== CALCULATE SUMMARY ==========
-    const overallPercentage =
-      totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
     const averageGPA =
-      subjectResults.length > 0
-        ? Number((totalGPA / subjectResults.length).toFixed(2))
-        : 0;
+      subjectResults.length > 0 ? totalGPA / subjectResults.length : 0;
 
     let finalGrade = "";
-    if (overallPercentage >= 80) finalGrade = "A+";
-    else if (overallPercentage >= 70) finalGrade = "A";
-    else if (overallPercentage >= 60) finalGrade = "A-";
-    else if (overallPercentage >= 50) finalGrade = "B";
-    else if (overallPercentage >= 40) finalGrade = "C";
-    else if (overallPercentage >= 33) finalGrade = "D";
+    if (averageGPA >= 5.0) finalGrade = "A+";
+    else if (averageGPA >= 4.0) finalGrade = "A";
+    else if (averageGPA >= 3.5) finalGrade = "A-";
+    else if (averageGPA >= 3.0) finalGrade = "B";
+    else if (averageGPA >= 2.0) finalGrade = "C";
+    else if (averageGPA >= 1.0) finalGrade = "D";
     else finalGrade = "F";
 
     const isOverallPassed = finalGrade !== "F";
+    const overallPercentage =
+      totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
 
     const summary = {
       totalSubjects: subjectResults.length,
       passedSubjects: passedCount,
       failedSubjects: failedCount,
-      totalObtainedMarks: Number(totalObtained.toFixed(2)),
+      totalObtainedMarks: totalObtained,
       totalMaxMarks: totalMax,
-      overallPercentage: Number(overallPercentage.toFixed(2)),
+      overallPercentage,
       averageGPA: Number(averageGPA.toFixed(2)),
       finalGrade,
       isPassed: isOverallPassed,
@@ -453,8 +500,6 @@ export const getFilteredResults = async (
     if (academicYear) filter.academicYear = academicYear;
     if (examId) filter.examId = examId;
     if (status) filter.status = status;
-
-    
 
     // If no filters, return empty
     if (Object.keys(filter).length === 0) {
