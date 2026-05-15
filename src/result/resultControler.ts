@@ -74,37 +74,13 @@ const calculateGradeAndGPA = (
   return { grade: "F", gpa: 0.0, isPassed: false };
 };
 
-const getRequiredPassMarks = (
-  totalMarks: number,
-  academicMarks: number,
-  behavioralMarks: number,
-) => {
-  const passPercent = 33;
-  const requiredTotal = Math.ceil((totalMarks * passPercent) / 100);
-  const requiredAcademic = Math.ceil((academicMarks * passPercent) / 100);
-  const requiredBehavioral = Math.ceil((behavioralMarks * passPercent) / 100);
-
-  return { requiredTotal, requiredAcademic, requiredBehavioral };
-};
-
-// Check if student passed the subject
+// ✅ SIMPLIFIED: Only check total marks (33% of total)
 const isSubjectPassed = (
   totalMarks: number,
   obtainedTotal: number,
-  academicMarks: number,
-  obtainedAcademic: number,
-  behavioralMarks: number,
-  obtainedBehavioral: number,
 ): boolean => {
-  const { requiredTotal, requiredAcademic, requiredBehavioral } =
-    getRequiredPassMarks(totalMarks, academicMarks, behavioralMarks);
-
-  // For 100-mark subjects, check academic and behavioral separately
-  if (totalMarks === 100) {
-    if (obtainedAcademic < requiredAcademic) return false;
-    if (obtainedBehavioral < requiredBehavioral) return false;
-  }
-
+  const passPercent = 33;
+  const requiredTotal = Math.ceil((totalMarks * passPercent) / 100);
   return obtainedTotal >= requiredTotal;
 };
 
@@ -315,28 +291,22 @@ const createResult = async (
         obtainedTotal = Math.round(obtainedAcademic);
       }
 
-      // ✅ Calculate percentage (rounded)
+      // Calculate percentage
       const percentage = Math.round((obtainedTotal / totalSubjectMarks) * 100);
 
-      // ✅ Use helper function
-      const gradeInfo = calculateGradeAndGPA(percentage);
-      let grade = gradeInfo.grade;
-      let gpa = gradeInfo.gpa;
-      let isPassed = gradeInfo.isPassed;
+      // ✅ Check if passed based on TOTAL marks only
+      const isPassed = isSubjectPassed(totalSubjectMarks, obtainedTotal);
 
-      // ✅ Check pass/fail with separate pass marks (override if needed)
-      const passedCheck = isSubjectPassed(
-        totalSubjectMarks,
-        obtainedTotal,
-        academicMax,
-        obtainedAcademic,
-        behavioralMax,
-        obtainedBehavioral,
-      );
+      let grade = "F";
+      let gpa = 0.0;
 
-      // If failed by pass marks, override
-      if (!passedCheck) {
-        isPassed = false;
+      if (isPassed) {
+        // ✅ Only calculate grade if passed
+        const gradeInfo = calculateGradeAndGPA(percentage);
+        grade = gradeInfo.grade;
+        gpa = gradeInfo.gpa;
+      } else {
+        // ✅ Failed subject - grade F, GPA 0
         grade = "F";
         gpa = 0.0;
       }
@@ -376,19 +346,35 @@ const createResult = async (
     }
 
     // ========== CALCULATE SUMMARY ==========
-    const averageGPA =
-      subjectResults.length > 0 ? totalGPA / subjectResults.length : 0;
+    // ✅ Check if ANY subject failed
+    const hasAnyFailed = failedCount > 0;
 
     let finalGrade = "";
-    if (averageGPA >= 5.0) finalGrade = "A+";
-    else if (averageGPA >= 4.0) finalGrade = "A";
-    else if (averageGPA >= 3.5) finalGrade = "A-";
-    else if (averageGPA >= 3.0) finalGrade = "B";
-    else if (averageGPA >= 2.0) finalGrade = "C";
-    else if (averageGPA >= 1.0) finalGrade = "D";
-    else finalGrade = "F";
+    let averageGPA = 0;
+    let isOverallPassed = false;
 
-    const isOverallPassed = finalGrade !== "F";
+    if (hasAnyFailed) {
+      // ✅ If any subject failed, overall result is FAIL
+      finalGrade = "F";
+      averageGPA = 0.0;
+      isOverallPassed = false;
+    } else {
+      // ✅ Only calculate GPA if all subjects passed
+      averageGPA =
+        subjectResults.length > 0 ? totalGPA / subjectResults.length : 0;
+
+      // Determine final grade based on average GPA
+      if (averageGPA >= 5.0) finalGrade = "A+";
+      else if (averageGPA >= 4.0) finalGrade = "A";
+      else if (averageGPA >= 3.5) finalGrade = "A-";
+      else if (averageGPA >= 3.0) finalGrade = "B";
+      else if (averageGPA >= 2.0) finalGrade = "C";
+      else if (averageGPA >= 1.0) finalGrade = "D";
+      else finalGrade = "F";
+
+      isOverallPassed = true;
+    }
+
     const overallPercentage =
       totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
 
@@ -495,7 +481,6 @@ export const getFilteredResults = async (
     // Build filter object
     let filter: any = {};
 
-    // ✅ Important: className must match exactly what's in DB
     if (className) filter.className = className;
     if (academicYear) filter.academicYear = academicYear;
     if (examId) filter.examId = examId;
@@ -510,24 +495,57 @@ export const getFilteredResults = async (
       });
     }
 
-    const results = await Result.find(filter).sort({ createdAt: -1 });
+    const results = await Result.find(filter);
 
-    console.log("Found results:", results.length); // Debug log
+    // ✅ ১. রোল অনুযায়ী সাজানো (ছোট থেকে বড়)
+    const sortedByRoll = [...results].sort((a, b) => {
+      const rollA = parseInt(a.studentSnapshot?.classRoll) || 0;
+      const rollB = parseInt(b.studentSnapshot?.classRoll) || 0;
+      return rollA - rollB;
+    });
 
-    // Format response for client
-    const formattedResults = results.map((result) => ({
-      _id: result._id,
-      studentName: result.studentSnapshot?.studentName,
-      studentRoll: result.studentSnapshot?.classRoll,
-      examName: result.examSnapshot?.name,
-      totalObtained: result.summary.totalObtainedMarks,
-      totalMax: result.summary.totalMaxMarks,
-      percentage: result.summary.overallPercentage,
-      grade: result.summary.finalGrade,
-      gpa: result.summary.averageGPA,
-      status: result.status,
-      createdAt: result.createdAt,
-    }));
+    // ✅ ২. GPA এবং নম্বরের ভিত্তিতে পজিশন নির্ধারণ
+    // প্রথমে GPA এবং নম্বর অনুযায়ী সাজানো
+    const sortedByMarks = [...results].sort((a, b) => {
+      // প্রথমে GPA দেখব (উল্টো ক্রমে - বেশি থেকে কম)
+      if (a.summary.averageGPA !== b.summary.averageGPA) {
+        return b.summary.averageGPA - a.summary.averageGPA;
+      }
+      // GPA সমান হলে মোট নম্বর দেখব
+      return b.summary.totalObtainedMarks - a.summary.totalObtainedMarks;
+    });
+
+    // পজিশন ম্যাপ তৈরি
+    const positionMap = new Map();
+    sortedByMarks.forEach((result, index) => {
+      positionMap.set(result._id.toString(), index + 1);
+    });
+
+    // ✅ ফরম্যাটেড রেসপন্স তৈরি
+    const formattedResults = sortedByRoll.map((result) => {
+      const resultId = result._id.toString();
+      const gpa = result.summary.averageGPA;
+      // const totalObtained = result.summary.totalObtainedMarks;
+
+      // GPA 0 হলে (ফেল) বিশেষ হ্যান্ডলিং
+      const isFailed = gpa === 0 && !result.summary.isPassed;
+
+      return {
+        _id: result._id,
+        studentName: result.studentSnapshot?.studentName,
+        studentRoll: result.studentSnapshot?.classRoll,
+        examName: result.examSnapshot?.name,
+        totalObtained: result.summary.totalObtainedMarks,
+        totalMax: result.summary.totalMaxMarks,
+        percentage: result.summary.overallPercentage,
+        grade: result.summary.finalGrade,
+        gpa: result.summary.averageGPA,
+        status: result.status,
+        createdAt: result.createdAt,
+        position: positionMap.get(resultId) || 0, // ✅ পজিশন যোগ করা হলো
+        isFailed, // ✅ ফেল হয়েছে কিনা
+      };
+    });
 
     res.status(200).json({
       success: true,
