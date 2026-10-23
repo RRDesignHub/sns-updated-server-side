@@ -611,4 +611,280 @@ export const getResultById = async (
     return next(createHttpError(500, "ফলাফল আনতে ব্যর্থ হয়েছে"));
   }
 };
+
+// consulated/combined result func:
+// ==================== GET AGGREGATE RESULTS BY CLASS ====================
+// ✅ Only aggregates students with EXACTLY 4 semester results
+// ✅ Combines behavioral data across semesters
+// ✅ Per-subject average + grade + GPA
+// ✅ Position by averageGPA, tie-breaker: totalObtained
+export const getAggregateResultsByClass = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { className, academicYear } = req.query;
+
+    if (!className || !academicYear) {
+      return next(
+        createHttpError(400, "শ্রেণি এবং শিক্ষাবর্ষ উভয়ই প্রদান করুন"),
+      );
+    }
+
+    // ---- Fetch all results for the class/year ----
+    const allResults = await Result.find({ className, academicYear });
+
+    if (!allResults.length) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+        message: "কোন ফলাফল পাওয়া যায়নি",
+      });
+    }
+
+    // ---- Fetch exams for chronological sorting ----
+    const examIds = [...new Set(allResults.map((r) => r.examId.toString()))];
+    const exams = await Exam.find({ _id: { $in: examIds } }).select(
+      "name startDate academicYear",
+    );
+    const examMap = new Map(exams.map((e) => [e._id.toString(), e]));
+
+    // ---- Group by student ----
+    const groupedByStudent = new Map<string, typeof allResults>();
+    allResults.forEach((r) => {
+      const sid = r.studentId.toString();
+      if (!groupedByStudent.has(sid)) groupedByStudent.set(sid, []);
+      groupedByStudent.get(sid)!.push(r);
+    });
+
+    const aggregateResults: any[] = [];
+
+    for (const [studentId, studentResults] of groupedByStudent) {
+      // ✅ B: Only include students with EXACTLY 4 semesters
+      if (studentResults.length !== 4) continue;
+
+      // ✅ Sort semesters chronologically (startDate → name fallback)
+      const sortedSemesters = [...studentResults].sort((a, b) => {
+        const aExam = examMap.get(a.examId.toString());
+        const bExam = examMap.get(b.examId.toString());
+        const aDate = aExam?.startDate
+          ? new Date(aExam.startDate).getTime()
+          : 0;
+        const bDate = bExam?.startDate
+          ? new Date(bExam.startDate).getTime()
+          : 0;
+        if (aDate !== bDate) return aDate - bDate;
+        return (aExam?.name || "").localeCompare(bExam?.name || "");
+      });
+
+      // ✅ Use latest semester's snapshot (most current roll)
+      const latestResult = sortedSemesters[sortedSemesters.length - 1];
+
+      // ---- Behavioral Aggregation ----
+      let totalWorkdays = 0,
+        totalPresent = 0;
+      let totalMeetings = 0,
+        totalAttended = 0;
+      let totalFeeMonths = 0,
+        totalPaid = 0;
+      let totalDiscipline = 0;
+
+      // ---- Subject Marks Map ----
+      const subjectMarksMap = new Map<
+        string,
+        {
+          subjectId: any;
+          name: string;
+          nameBn: string;
+          code: string;
+          totalMarks: number;
+          semesterMarks: (number | null)[];
+          presentCount: number;
+        }
+      >();
+
+      for (let i = 0; i < sortedSemesters.length; i++) {
+        const result = sortedSemesters[i];
+
+        totalWorkdays += result.behavioralData.attendance.total || 0;
+        totalPresent += result.behavioralData.attendance.present || 0;
+        totalMeetings += result.behavioralData.meetings.total || 0;
+        totalAttended += result.behavioralData.meetings.attended || 0;
+        totalFeeMonths += result.behavioralData.fees.total || 0;
+        totalPaid += result.behavioralData.fees.paid || 0;
+        totalDiscipline += result.behavioralData.discipline.obtained || 0;
+
+        for (const sub of result.subjectResults) {
+          const sid = sub.subjectId.toString();
+          if (!subjectMarksMap.has(sid)) {
+            subjectMarksMap.set(sid, {
+              subjectId: sub.subjectId,
+              name: sub.name,
+              nameBn: sub.nameBn,
+              code: sub.code,
+              totalMarks: sub.totalMarks,
+              semesterMarks: [null, null, null, null],
+              presentCount: 0,
+            });
+          }
+          const entry = subjectMarksMap.get(sid)!;
+          entry.semesterMarks[i] = sub.obtainedTotal;
+          entry.presentCount++;
+        }
+      }
+
+      // ---- Subject Averages ----
+      const subjectResults: any[] = [];
+      let totalObtained = 0,
+        totalMax = 0,
+        totalGPA = 0;
+      let passedCount = 0,
+        failedCount = 0;
+
+      for (const [, subInfo] of subjectMarksMap) {
+        const validMarks = subInfo.semesterMarks.filter(
+          (m) => m !== null,
+        ) as number[];
+        if (validMarks.length === 0) continue;
+
+        const avgMarks =
+          validMarks.reduce((a, b) => a + b, 0) / validMarks.length;
+        const percentage = Math.round((avgMarks / subInfo.totalMarks) * 100);
+        const passMarks = Math.ceil((subInfo.totalMarks * 33) / 100);
+        const isPassed = Math.round(avgMarks) >= passMarks;
+
+        let grade = "F";
+        let gpa = 0;
+        if (isPassed) {
+          const gi = calculateGradeAndGPA(percentage);
+          grade = gi.grade;
+          gpa = gi.gpa;
+        }
+
+        subjectResults.push({
+          subjectId: subInfo.subjectId,
+          name: subInfo.name,
+          nameBn: subInfo.nameBn,
+          code: subInfo.code,
+          totalMarks: subInfo.totalMarks,
+          semesterMarks: subInfo.semesterMarks,
+          presentCount: subInfo.presentCount,
+          averageMarks: Number(avgMarks.toFixed(2)),
+          percentage,
+          grade,
+          gpa,
+          isPassed,
+        });
+
+        totalObtained += avgMarks;
+        totalMax += subInfo.totalMarks;
+        totalGPA += gpa;
+        if (isPassed) passedCount++;
+        else failedCount++;
+      }
+
+      // ---- Summary ----
+      const hasAnyFailed = failedCount > 0;
+      const overallPercentage =
+        totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+
+      let finalGrade = "F";
+      let averageGPA = 0;
+      let isOverallPassed = false;
+
+      if (!hasAnyFailed && subjectResults.length > 0) {
+        averageGPA = totalGPA / subjectResults.length;
+        if (averageGPA >= 5.0) finalGrade = "A+";
+        else if (averageGPA >= 4.0) finalGrade = "A";
+        else if (averageGPA >= 3.5) finalGrade = "A-";
+        else if (averageGPA >= 3.0) finalGrade = "B";
+        else if (averageGPA >= 2.0) finalGrade = "C";
+        else if (averageGPA >= 1.0) finalGrade = "D";
+        else finalGrade = "F";
+        isOverallPassed = true;
+      }
+
+      aggregateResults.push({
+        studentId,
+        studentSnapshot: latestResult.studentSnapshot, // ✅ latest roll
+        semesterCount: sortedSemesters.length,
+        semesters: sortedSemesters.map((r, idx) => {
+          const exam = examMap.get(r.examId.toString());
+          return {
+            semesterNumber: idx + 1,
+            resultId: r._id,
+            examId: r.examId,
+            examName: r.examSnapshot.name,
+            examStartDate: exam?.startDate,
+          };
+        }),
+        behavioral: {
+          attendance: {
+            totalWorkdays,
+            totalPresent,
+            totalAbsent: totalWorkdays - totalPresent,
+          },
+          meetings: { totalMeetings, totalAttended },
+          fees: { totalFeeMonths, totalPaid },
+          discipline: { totalObtained: totalDiscipline },
+        },
+        subjectResults,
+        summary: {
+          totalSubjects: subjectResults.length,
+          passedSubjects: passedCount,
+          failedSubjects: failedCount,
+          totalObtained: Number(totalObtained.toFixed(2)),
+          totalMax,
+          overallPercentage,
+          averageGPA: Number(averageGPA.toFixed(2)),
+          finalGrade,
+          isPassed: isOverallPassed,
+        },
+      });
+    }
+
+    // ---- Position Calculation ----
+    const sortedForRank = [...aggregateResults].sort((a, b) => {
+      if (a.summary.isPassed !== b.summary.isPassed) {
+        return a.summary.isPassed ? -1 : 1; // passed students first
+      }
+      if (a.summary.averageGPA !== b.summary.averageGPA) {
+        return b.summary.averageGPA - a.summary.averageGPA;
+      }
+      return b.summary.totalObtained - a.summary.totalObtained;
+    });
+
+    const positionMap = new Map<string, number>();
+    let currentRank = 0;
+    sortedForRank.forEach((r) => {
+      if (r.summary.isPassed) {
+        currentRank++;
+        positionMap.set(r.studentId, currentRank);
+      }
+    });
+
+    const withPosition = aggregateResults.map((r) => ({
+      ...r,
+      position: positionMap.get(r.studentId) || 0,
+    }));
+
+    // Sort by roll for display
+    withPosition.sort((a, b) => {
+      const rollA = parseInt(a.studentSnapshot.classRoll) || 0;
+      const rollB = parseInt(b.studentSnapshot.classRoll) || 0;
+      return rollA - rollB;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: withPosition,
+      count: withPosition.length,
+      message: `${withPosition.length} জন শিক্ষার্থীর সামগ্রিক ফলাফল পাওয়া গেছে`,
+    });
+  } catch (error: any) {
+    console.error("Aggregate error:", error);
+    return next(createHttpError(500, "সামগ্রিক ফলাফল আনতে ব্যর্থ হয়েছে"));
+  }
+};
 export { searchStudent, createResult };
