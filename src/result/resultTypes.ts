@@ -161,3 +161,56 @@ export interface ICheckResultQuery {
   studentId: string;
   examId: string;
 }
+
+// For aggregate response (optional but useful for client typing)
+export interface IAggregateSubjectResult {
+  subjectId: Types.ObjectId;
+  name: string;
+  nameBn: string;
+  code: string;
+  totalMarks: number;
+  semesterMarks: (number | null)[];
+  presentCount: number;
+  averageMarks: number;
+  percentage: number;
+  grade: string;
+  gpa: number;
+  isPassed: boolean;
+}
+
+export interface IAggregateResult {
+  studentId: string;
+  studentSnapshot: {
+    studentId: string;
+    studentName: string;
+    classRoll: string;
+    className: string;
+  };
+  semesterCount: number;
+  semesters: {
+    semesterNumber: number;
+    resultId: Types.ObjectId;
+    examId: Types.ObjectId;
+    examName: string;
+    examStartDate?: Date;
+  }[];
+  behavioral: {
+    attendance: { totalWorkdays: number; totalPresent: number; totalAbsent: number };
+    meetings: { totalMeetings: number; totalAttended: number };
+    fees: { totalFeeMonths: number; totalPaid: number };
+    discipline: { totalObtained: number };
+  };
+  subjectResults: IAggregateSubjectResult[];
+  summary: {
+    totalSubjects: number;
+    passedSubjects: number;
+    failedSubjects: number;
+    totalObtained: number;
+    totalMax: number;
+    overallPercentage: number;
+    averageGPA: number;
+    finalGrade: string;
+    isPassed: boolean;
+  };
+  position: number;
+}

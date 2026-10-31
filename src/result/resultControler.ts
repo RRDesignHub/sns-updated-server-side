@@ -887,4 +887,106 @@ export const getAggregateResultsByClass = async (
     return next(createHttpError(500, "সামগ্রিক ফলাফল আনতে ব্যর্থ হয়েছে"));
   }
 };
+
+// ========== HEAD TEACHER MESSAGE GENERATOR ==========
+const getHeadTeacherMessage = (isPassed: boolean, gpa: number): string => {
+  if (!isPassed) {
+    return "হতাশ হয়ো না। প্রতিটি ব্যর্থতা সফলতার পথ তৈরি করে। পরিশ্রম করে আবার চেষ্টা করো — ইনশাআল্লাহ সফল হবে।";
+  }
+  if (gpa >= 5.0) {
+    return "অসাধারণ ফলাফল! তোমার এই ধারাবাহিকতা ও পরিশ্রম সত্যিই প্রশংসনীয়। এভাবেই এগিয়ে যাও — ভবিষ্যৎ তোমার জন্য অপেক্ষা করছে।";
+  }
+  if (gpa >= 4.0) {
+    return "খুব ভালো করেছ! তুমি সঠিক পথেই আছো। আরও একটু চেষ্টা করলেই অসাধারণ উচ্চতায় পৌঁছাবে।";
+  }
+  if (gpa >= 3.5) {
+    return "ভালো ফলাফল করেছ। নিয়মিত পড়াশোনা চালিয়ে যাও — সাফল্য তোমার হাতছানি দিচ্ছে।";
+  }
+  if (gpa >= 3.0) {
+    return "মোটামুটি ভালো করেছ। আরও একটু মনোযোগ ও পরিশ্রম দিলে তোমার ফলাফল আরও উন্নত হবে।";
+  }
+  if (gpa >= 2.0) {
+    return "তোমাকে আরও পরিশ্রম করতে হবে। হতাশ না হয়ে মন দিয়ে পড়াশোনা করো — সফলতা আসবেই।";
+  }
+  if (gpa >= 1.0) {
+    return "আরও বেশি মনোযোগ ও নিয়মিত পড়াশোনা দরকার। নিজের ওপর বিশ্বাস রাখো এবং চেষ্টা চালিয়ে যাও।";
+  }
+  return "পরিশ্রমই সফলতার চাবিকাঠি। নিরাশ না হয়ে আরও গুরুত্বের সাথে পড়াশোনা শুরু করো।";
+};
+
+// ========== PUBLIC SEARCH (NO AUTH — minimal fields) ==========
+export const publicSearchResult = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { className, classRoll, examName, academicYear } = req.query;
+
+    if (!className || !classRoll || !examName) {
+      return next(
+        createHttpError(400, "শ্রেণি, রোল এবং পরীক্ষার নাম প্রদান করুন"),
+      );
+    }
+
+    const query: any = {
+      className: String(className).trim(),
+      "studentSnapshot.classRoll": String(classRoll).trim(),
+      "examSnapshot.name": String(examName).trim(),
+    };
+    if (academicYear) query.academicYear = String(academicYear).trim();
+
+    const result = await Result.findOne(query);
+
+    if (!result) {
+      return next(
+        createHttpError(
+          404,
+          "এই তথ্য অনুযায়ী কোনো ফলাফল পাওয়া যায়নি। শ্রেণি, রোল ও পরীক্ষা সঠিকভাবে যাচাই করুন।",
+        ),
+      );
+    }
+
+    // ✅ Head teacher's message
+    const headTeacherMessage = getHeadTeacherMessage(
+      result.summary.isPassed,
+      result.summary.averageGPA,
+    );
+
+    // ✅ Return ONLY essential public fields (no studentId, no behavioral data, no internal IDs)
+    res.status(200).json({
+      success: true,
+      data: {
+        studentSnapshot: {
+          studentName: result.studentSnapshot.studentName,
+          className: result.studentSnapshot.className,
+          classRoll: result.studentSnapshot.classRoll,
+        },
+        examSnapshot: {
+          name: result.examSnapshot.name,
+        },
+        academicYear: result.academicYear,
+        subjectResults: result.subjectResults.map((s) => ({
+          nameBn: s.nameBn,
+          obtainedTotal: s.obtainedTotal,
+          totalMarks: s.totalMarks,
+          grade: s.grade,
+        })),
+        summary: {
+          totalObtainedMarks: result.summary.totalObtainedMarks,
+          totalMaxMarks: result.summary.totalMaxMarks,
+          overallPercentage: result.summary.overallPercentage,
+          averageGPA: result.summary.averageGPA,
+          finalGrade: result.summary.finalGrade,
+          isPassed: result.summary.isPassed,
+        },
+        headTeacherMessage,
+      },
+    });
+  } catch (error: any) {
+    console.error("Public search error:", error);
+    return next(createHttpError(500, "ফলাফল আনতে ব্যর্থ হয়েছে"));
+  }
+};
+
 export { searchStudent, createResult };

@@ -117,7 +117,7 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
 
     // jwt token generations:
     const token = sign({ sub: user._id }, config.jwtSecret as string, {
-      expiresIn: "1h",
+      expiresIn: "24h",
     });
 
     // response after created new user:
