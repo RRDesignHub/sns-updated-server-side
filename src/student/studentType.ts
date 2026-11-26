@@ -1,60 +1,25 @@
-import { Document } from "mongoose";
-
-export interface IStudent extends Document {
-  // Basic Info
-  studentID: string;
-  studentName: string;
-
-  // Academic Info
-  className: string; // "Class 5", "Class 8"
+export interface Student {
+  _id?: string;
+  studentID: string; // Server generated: SN-2025-0001
+  section: "primary" | "higher";
+  className: string;
   classRoll: string;
-  sectionName?: string; // "A", "B", "C" (optional)
-  groupName?: string; // "Science", "Arts", "Commerce" (for higher classes)
-  session: string; // "2025-2026"
-  academicYear?: string; // "2026"
-
-  // Personal Info
-  dateOfBirth: Date;
-  birthRegNo: string;
-  gender: "Male" | "Female";
-  bloodGroup?: "A+" | "A-" | "B+" | "B-" | "O+" | "O-" | "AB+" | "AB-";
-  religion: string;
-
-  // Parents Info
+  groupName?: string;
+  sectionName?: string;
+  session: string;
+  studentName: string;
   fatherName: string;
   motherName: string;
-
-  // Contact
-  mobileNo: string;
+  mobileNo: number;
+  birthRegNo?: string;
+  dateOfBirth: string;
   address?: string;
-
-  // Financial
-  monthlyFee?: number;
-  admissionFee?: number;
-
-  // Metadata
+  gender: "Male" | "Female";
+  bloodGroup: "A+" | "A-" | "B+" | "B-" | "O+" | "O-" | "AB+" | "AB-";
+  religion: "Islam" | "Hindu" | "Christian" | "Buddhist";
   image?: string;
-  status: "active" | "inactive" | "passed_out";
-  addedBy?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// ✅ Export the type for search response
-export interface IStudentSearchResponse {
-  _id?: string;
-  studentId: string;
-  name: string;
-  roll: string;
-  className: string;
-  classId: string;
-  section: string;
-}
-
-export interface IStudentDocument {
-  _id: string;
-  studentID: string;
-  studentName: string;
-  classRoll: string;
-  className: string;
+  admissionFee: number;
+  isActive?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
